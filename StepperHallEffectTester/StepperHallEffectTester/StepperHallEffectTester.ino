@@ -1,0 +1,43 @@
+#include "BasicStepperDriver.h"
+
+#define STEP_PIN 18
+#define DIRECTION_PIN 19
+#define SENSOR_PIN 4
+#define STEPS_PER_ROTATION 200
+#define RPM 640
+#define MICROSTEPS 1
+BasicStepperDriver stepper(STEPS_PER_ROTATION, DIRECTION_PIN, STEP_PIN);
+
+void setup() {
+  Serial.begin(9600);
+  stepper.begin(RPM, MICROSTEPS);
+  pinMode(STEP_PIN, OUTPUT);
+  pinMode(DIRECTION_PIN, OUTPUT);
+  pinMode(SENSOR_PIN, INPUT);
+}
+
+void loop() {
+  while (!Serial.available()) {};
+  String input = Serial.readString();
+  int inputValue = input.toInt();
+  if (inputValue != 0) {
+    stepper.move(inputValue);
+  } else if (input.startsWith("start") || input.startsWith("Start")) {
+    moveAndRead(400, 50); //steps, iterations
+  }
+}
+
+void moveAndRead(int steps, int iterations) {
+  Serial.println("Steps,Reading");
+  printSensorReading(0, analogRead(SENSOR_PIN));
+  for (int i = 0; i < iterations; i++) {
+    stepper.move(steps);
+    printSensorReading(steps * (i + 1), analogRead(SENSOR_PIN));
+  }
+}
+
+void printSensorReading(int steps, int reading) {
+  Serial.print(steps);
+  Serial.print(",");
+  Serial.println(reading);
+}
