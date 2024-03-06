@@ -1,4 +1,5 @@
 #include "BasicStepperDriver.h"
+#include "Statistical.h"
 
 #define STEP_PIN 18
 #define DIRECTION_PIN 19
@@ -23,21 +24,34 @@ void loop() {
   if (inputValue != 0) {
     stepper.move(inputValue);
   } else if (input.startsWith("start") || input.startsWith("Start")) {
-    moveAndRead(-500, 100);
+    moveAndRead(-500, 100, 5); //steps, iterations, readingSetSize
   }
 }
 
-void moveAndRead(int steps, int iterations) {
-  Serial.println("Cm,Reading");
-  printSensorReading(0, analogRead(SENSOR_PIN));
-  for (int i = 0; i < iterations; i++) {
+void moveAndRead(int steps, int iterations, int readingSetSize) {
+  Serial.println("Cms,R1,R2,R3,R4,R5,Avg,SD");
+  collectAndPrintStats(0, readingSetSize);
+  for (int i = 1; i <= iterations; i++) {
     stepper.move(steps);
-    printSensorReading(abs(steps * 0.0001) * (i + 1), analogRead(SENSOR_PIN));
+    float cms = abs(steps * .0001) * i; //0.0001 cms per step
+    collectAndPrintStats(cms, readingSetSize);
   }
 }
 
-void printSensorReading(float cms, int reading) {
-  Serial.print(cms, 4);
+void collectAndPrintStats(float cms, int readingSetSize){
+  Serial.print(cms, 3);
   Serial.print(",");
-  Serial.println(reading);
+  int readingSet[readingSetSize];
+  for(int i = 0; i < readingSetSize; i++){
+    readingSet[i] = analogRead(SENSOR_PIN);
+    Serial.print(readingSet[i]);
+    Serial.print(",");
+    delay(10);
+  }
+  Array_Stats<int> readingSetStats(readingSet, readingSetSize);
+  float average = readingSetStats.Average(readingSetStats.Arithmetic_Avg);
+  Serial.print(average);
+  Serial.print(",");
+  float standardDeviation = readingSetStats.Standard_Deviation();
+  Serial.println(standardDeviation, 3);
 }
