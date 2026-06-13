@@ -53,7 +53,7 @@ const long PULSES_PER_REV =
 // Which DIR logic level moves the platform AWAY from the sensor?
 // Discover this on the first run: jog a small positive count and watch.
 // If positive moves TOWARD the sensor, change HIGH to LOW and re-upload.
-const int DIR_AWAY_LEVEL = HIGH;
+const int DIR_AWAY_LEVEL = LOW;
 
 // ----------------------------- Pulse timing ----------------------------------
 // Deliberately slow/wide pulses so the motor NEVER misses a step during
