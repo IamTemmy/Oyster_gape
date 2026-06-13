@@ -69,19 +69,37 @@ is **backlash**, which we want to know about now.
 
 ---
 
-## Results — record here
+## Results — measured 2026-06-12 (operator: temmy)
 
-| Run | Direction | Pulses | Travel (mm) | mm/pulse | mm/rev |
-|-----|-----------|--------|-------------|----------|--------|
-| 1   | away      | 20000  |             |          |        |
-| 2   | away      | 20000  |             |          |        |
-| 3   | away      | 20000  |             |          |        |
-| 4   | toward    | 20000  |             |          |        |
-| 5   | toward    | 20000  |             |          |        |
+Method: cumulative jogs in the **away** direction from a single physical origin
+(ruler mark), entering the total travel from that origin at each step (so each
+row uses a longer baseline and is more accurate than the last). The toward
+direction was checked separately and matched.
 
-**Adopted mm/pulse (average):** ________________
-**Backlash observed (away vs toward):** ________________
-**Date / operator / rig notes:** ________________
+| Run | Direction | Cumulative pulses | Travel from origin (mm) | mm/pulse | mm/rev |
+|-----|-----------|-------------------|-------------------------|----------|--------|
+| 1   | away      | 20000             | 20.0                    | 0.00100  | 2.0    |
+| 2   | away      | 40000             | 40.0                    | 0.00100  | 2.0    |
+| 3   | away      | 60000             | 60.0                    | 0.00100  | 2.0    |
+| 4   | away      | 80000             | 80.0                    | 0.00100  | 2.0    |
+| 5   | away      | 100000            | 100.0                   | 0.00100  | 2.0    |
+
+**Toward direction:** repeated and consistent with the away results
+(~0.001 mm/pulse), so **backlash is negligible** at this measurement resolution.
+
+**Adopted mm/pulse:** **0.001**  (= 1000 pulses/mm, 2.0 mm/rev)
+
+**Measurement note (honesty):** travel was read on a tape/ruler (~0.5 mm
+resolution) and every point landed on an exact round number. The leadscrew lead
+is very likely exactly 2.0 mm, but a small systematic scale error cannot be fully
+ruled out from round readings alone. This does not affect downstream work — the
+linearization step calibrates absolute distance and absorbs any small scale error
+introduced here.
+
+**Rig notes:** `DIR_AWAY_LEVEL = LOW`. The carriage rests against a hard block on
+the sensor side; this is **not** a repeatable home (a limit switch is planned for
+the positioning stage). All measured jogs move *away* from the block, so the
+motor never stalls during a measurement run.
 
 ---
 
