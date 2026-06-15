@@ -36,3 +36,56 @@ Next: confirm whether 100 mT (more swing) escapes the squeeze with a pushed-out 
 The fix for non-clipping ranges: **start the window past the steep first segment**
 (4 mm for 100 mT). 1 mm spiked (unwritable); 4 mm gave a clean flat–ramp–flat
 verified at 2.6% linearity. 100 mT is the first fully linearized + verified range.
+
+| 50 mT | 3.0–13.0 | 13636 | 2076 | Transfer spiked — start still too steep. |
+| 50 mT | 6.0–16.0 | (recal) | | **SUCCESS** — smooth transfer, written, verified. Ramp straight to **1.4%** (max 39 mV dev), slope 258 mV/mm. Cleanest range so far; front-runner. |
+
+## Linearization-safe window starts (corrected, per range)
+Each range needs its window START pushed past its steep shoulder (further out as
+sensitivity rises), or the linearizer's inverse spikes and setpoints won't write:
+- 100 mT -> start 4.0 mm  (verified, 2.6%)
+- 50 mT  -> start 6.0 mm  (verified, 1.4%)
+- 25 mT  -> testing ~8.0 mm
+(200/400 mT impractical: can't get swing + gentle start simultaneously.)
+
+| 25 mT | 8.0–20.0 | (ok) | | **SUCCESS** — verified, ramp straight to 2.0%, slope 217 mV/mm, 8.5–20.7 mm. Wider window than 50mT. |
+
+| 12 mT | 11.0–24.0 | (ok) | | **SUCCESS** — verified, see straightness in session. Window 11–26 mm. |
+
+| 6 mT | 17.0–32.0 | (ok) | | **SUCCESS** — verified. Window 17–37 mm; widest span yet before 3mT. |
+
+| 3 mT | 20.0–44.0 | (ok) | | First try bent at top (5.8%) — END reached the flat zone. Re-run accepted at 3.1%. |
+
+---
+
+# STAGE 03 — FINAL RESULTS (6 ranges linearized + verified)
+
+| Range | Window start→end (mm) | Width (mm) | Slope (mV/mm) | Linearity (max dev) |
+|------:|:---------------------:|:----------:|:-------------:|:-------------------:|
+| 3 mT   | 21.8–43.7 | 21.9 | 115 | 3.1% |
+| 6 mT   | 18.2–36.4 | 18.2 | 140 | 2.6% |
+| 12 mT  | 11.4–25.2 | 13.8 | 187 | 2.3% |
+| 25 mT  | 8.5–20.7  | 12.2 | 217 | 2.0% |
+| 50 mT  | 6.4–16.4  | 10.0 | 258 | 1.4% (cleanest) |
+| 100 mT | 4.1–14.2  | 10.1 | 260 | 2.6% |
+| 200 mT | — | — | — | IMPRACTICAL (swing vs gentle-start squeeze) |
+| 400 mT | — | — | — | IMPRACTICAL (swing too small to calibrate) |
+
+## Key findings
+1. **Six usable linearized ranges (3–100 mT)**, each a straight gap-vs-output
+   ramp, all within 1.4–3.1% linearity. Together they form a "range ladder":
+   pick the range whose ramp covers a given oyster's gape window.
+2. **Window rule:** each range's window must START past its steep shoulder
+   (further out as the range gets more sensitive) and END before its flat tail —
+   else the linearizer's inverse spikes (unwritable) or the ramp bends.
+3. **Magnet reach limit ≈ 38 mm.** Going to the most sensitive range (3 mT) did
+   NOT extend usable reach much beyond 6 mT — the field flattens by ~38 mm
+   regardless of range. The largest gapes would need a stronger magnet.
+4. **200/400 mT impractical** with this magnet: too little signal swing to both
+   calibrate and linearize.
+5. Measurement quality: more-sensitive ranges trade slope (resolution) for reach.
+   50 mT is the cleanest/highest-resolution general-purpose choice.
+
+## Open / next
+- Deployment: pick range per oyster from its actual gape window (closed+open mm).
+- Set Clamp-Low/High band + wire-break detection (currently 0/100).
