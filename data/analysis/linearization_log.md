@@ -89,3 +89,46 @@ sensitivity rises), or the linearizer's inverse spikes and setpoints won't write
 ## Open / next
 - Deployment: pick range per oyster from its actual gape window (closed+open mm).
 - Set Clamp-Low/High band + wire-break detection (currently 0/100).
+
+---
+
+# Experiment: magnetic range acts UPSTREAM of the signal path (CFX evidence)
+
+**Question (raised by colleague):** can the stored signal path be tweaked to move a
+range's ramp along the *distance* axis — e.g., make 3 mT read near the block like
+100 mT does?
+
+**Method:** magnet held FIXED at distance 0 (closest to block). Changed ONLY the
+Magnetic Range dropdown; clicked Read All Registers each time. No recalibration,
+no Load Signal Path.
+
+**Observation (same magnet, same position):**
+
+| Range  | CFX (raw sensed) | OUT[%FS] | Signal-path registers |
+|-------:|:----------------:|:--------:|:---------------------:|
+| 100 mT | 16887 (~half scale) | 7.14 | unchanged |
+| 50 mT  | 32767 (RAILED)      | 7.14 | unchanged |
+| 3 mT   | 32767 (RAILED)      | 7.14 | unchanged |
+
+- Signal-path coefficients (TCCG / SCALE / OUT / clamps) did NOT change with range.
+- Only RAM (live pipeline) values changed. **CFX is the tell.**
+
+**Conclusion:**
+- Magnetic range sets front-end sensitivity BEFORE the signal path. At a fixed
+  strong-field position the sensitive ranges (3/50 mT) rail the raw sensed value
+  (CFX = 32767 = full scale); the insensitive range (100 mT) stays ~half scale.
+- A railed CFX cannot be recovered by any downstream signal-path math → output
+  pinned (7.14 %FS) regardless of coefficients.
+- Therefore the signal path shapes the ramp VERTICALLY (level / slope / straightness)
+  but CANNOT move it along the distance axis. Ramp *position* is set by where CFX
+  comes off the rail = the magnetic range's job. The range ladder is the
+  horizontal-position mechanism; the signal path is the shaping mechanism.
+- CFX is a live READ-ONLY pipeline value (Read RAM); it is NOT a writable setting.
+  It re-measures the real field every read, so it can't be "set" to another value.
+- Note: SETPT_OUT = 0 in all three shots → no linearization setpoints active in the
+  currently-loaded recipe (a bare/leftover calibration, not one of the 6 verified).
+
+**Efficiency spin-off (deployment range selection):**
+Park the magnet at the oyster's CLOSED-gap distance (strongest field) and Read CFX
+per range. Any range showing CFX = 32767 is railed at closed → disqualified without
+a full sweep. Filter losers first, then linearize only the survivor(s).
