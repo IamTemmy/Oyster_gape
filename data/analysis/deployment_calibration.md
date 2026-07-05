@@ -54,6 +54,10 @@ per unit at install.
   below any real gape) so closed is steady, not flickering; any real press clears it instantly.
 - Baselines live in RAM (re-captured each boot / on `zero`). **Deployment TODO:** persist to
   flash so they survive a power cycle (Phase 2).
+- **Gauge auto-scales per unit:** the dashboard's bar + shell full-scale is each sensor's own
+  physical max opening, `gmax = rampHi − baseline_mm`, computed live from the tare — no fixed
+  full-scale constant. So the visual tracks each unit's real range (pegs now, oysters later)
+  with nothing to change per deployment.
 
 ## Operating assumptions (stated, not proven)
 - **Hinge-arc error is minimal** (professor's ruling for this oyster size/opening). The

@@ -63,7 +63,6 @@ const unsigned int SAMPLE_DELAY_US = 250;
 const float        CLAMP_MARGIN_MV = 20.0;   // "still pinned" safety net
 const float        CLOSED_BAND_MM  = 0.05;   // within this of baseline = "closed"
 const unsigned long SETTLE_MS      = 1500;   // wait before auto-capturing baseline
-const float        GAPE_FULL_MM    = 12.0;   // visual full-scale for shell + bar
 
 // ---- tare state ------------------------------------------------------------
 float baseline_mV[N_SENSORS];
@@ -191,7 +190,7 @@ const char PAGE_HTML[] PROGMEM = R"HTML(<!doctype html>
 
 <script>
 const A_MAX = 26;                 // shell half-opening angle at full gape (deg)
-const GAPE_FULL = 12;             // mm, visual full-scale
+const GAPE_FULL = 12;             // mm, fallback only — per-sensor gmax is preferred
 const LABEL = {
   CLOSED:"Closed", OPEN:"Open", OVER:"Over-range",
   NOZERO:"No baseline", FAULT:"Sensor fault"
@@ -231,13 +230,13 @@ function build(list){
       `<div class="read"><span class="val mono">&mdash;</span><span class="unit">mm gape</span></div>`+
       `<span class="pill">&hellip;</span>`+
       `<div class="scale"><span class="mark"></span></div>`+
-      `<div class="ends"><span>0</span><span>gape (mm)</span><span>${GAPE_FULL}</span></div>`+
+      `<div class="ends"><span>0</span><span>gape (mm)</span><span class="gmax">${GAPE_FULL}</span></div>`+
       `<div class="foot"><span class="mono raw">&mdash; mV</span><span class="base">zero &mdash;</span></div>`;
     wrap.appendChild(c);
     return {card:c, top:c.querySelector('.valve.top'), bot:c.querySelector('.valve.bot'),
       ap:c.querySelector('.aperture'), val:c.querySelector('.val'),
       pill:c.querySelector('.pill'), mark:c.querySelector('.mark'),
-      raw:c.querySelector('.raw'), base:c.querySelector('.base')};
+      raw:c.querySelector('.raw'), base:c.querySelector('.base'), gmax:c.querySelector('.gmax')};
   });
 }
 
@@ -245,7 +244,8 @@ function update(list){
   list.forEach((s,i)=>{
     const e = els[i]; if(!e) return;
     const st = s.state;
-    let frac = s.gape / GAPE_FULL;
+    const full = (s.gmax && s.gmax > 0) ? s.gmax : GAPE_FULL;
+    let frac = s.gape / full;
     if(st==="OVER") frac = 1;
     if(st==="CLOSED" || st==="NOZERO" || st==="FAULT") frac = 0;
     frac = Math.max(0, Math.min(1, frac));
@@ -263,6 +263,7 @@ function update(list){
     e.mark.style.left = (frac*100) + "%";
     e.raw.textContent = s.mv + " mV";
     e.base.textContent = (s.base > 0) ? ("zero " + s.base + " mV") : "not zeroed";
+    e.gmax.textContent = full.toFixed(1);
   });
 }
 
@@ -349,11 +350,17 @@ String buildJson() {
       else                                                 st = "OPEN";
     }
     long base = baseline_ok[i] ? (long)lround(baseline_mV[i]) : -1;
+    // this unit's full physical opening = ramp top minus its own closed baseline.
+    // Auto-scales the gauge per unit (pegs now, oysters later) — no fixed constant.
+    float baseMm = baseline_ok[i] ? (baseline_mV[i] - SENSORS[i].b) / SENSORS[i].m
+                                  : SENSORS[i].rampLo;
+    float gmax = SENSORS[i].rampHi - baseMm;
     if (i) j += ",";
     j += "{\"id\":\"" + String(SENSORS[i].name) + "\",\"pin\":" + String(SENSORS[i].pin)
        + ",\"mv\":" + String((long)lround(mv))
        + ",\"gape\":" + String(gape < 0 ? 0.0f : gape, 2)
        + ",\"base\":" + String(base)
+       + ",\"gmax\":" + String(gmax, 1)
        + ",\"state\":\"" + String(st) + "\"}";
   }
   j += "]}";
