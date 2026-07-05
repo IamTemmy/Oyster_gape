@@ -1,4 +1,78 @@
-# Deployment calibration — per-sensor 12 mT (bench simulation)
+# Deployment calibration — Oyster_gape (MBRACE)
+
+> **Current working approach: 25 mT + firmware tare** (2026-07-05, sketch
+> `firmware/06_board_b_tare`). The 12 mT section below is retained for its offset
+> findings and is **superseded** for the bench.
+
+## Why we moved off 12 mT — the two-rulers / stacked-offset finding
+
+The "distance" axis in every rig CSV is **carriage travel from the datum block**, not the
+true magnet-to-sensor gap. The rig sweep starts with the magnet already standing off the
+sensor — **measured ~5 mm** on the carriage — so **every CSV distance is ~5 mm short of the
+true rig gap**. The peg mount then stacks its OWN, different offset on top (worked backward
+from S3: 330 mV closed at a 12.4 mm caliper gap ⇒ ~1.5 mm peg offset). These offsets are
+(a) not equal and (b) not the same sign, so **no single constant correction fixes both
+setups** — which is what fooled the "peg is wider than the dead zone on paper" check twice.
+
+Consequence at 12 mT: the window started at rig 11.0 mm and the closed peg landed just
+below it → clamped ~300 mV (dead zone); small openings didn't register until ~1 mm in.
+
+## Fix: 25 mT re-linearization (per-sensor, window 8.0–20.0)
+
+Higher magnetic range shifts the active region toward **smaller** gaps, so at 25 mT the
+window can start low (8.0) without hitting the steep shoulder / F:000000 spike. Re-done on
+fresh pegs + fresh sensors. Bench-verified: closed pegs read **~448–464 mV (~8.5 mm, on
+ramp)** and a realistic full-open reads **~2510 mV (~17.9 mm, on ramp)** — both gates passed
+(closed off the floor, full-open under the ceiling).
+
+| Channel | gape_mm line (abs) | Ramp (mm) | Floor / ceil (mV) | Linearity |
+|:--:|:--:|:--:|:--:|:--:|
+| **S1 → GPIO34** | (mV + 1368.4) / 214.7 | ~8.6–20.5 | 312 / 3150 | 1.5% |
+| **S2 → GPIO35** | (mV + 1386.4) / 217.7 | ~8.3–20.3 | 284 / 3150 | 1.2% |
+| **S3 → GPIO32** | (mV + 1355.5) / 216.9 | ~8.4–20.3 | 296 / 3150 | 1.7% |
+
+Source: `data/sim_test_data/charac_S{1,2,3}_25mT_linearized_run1.csv`, window 8.0–20.0.
+Slopes agree within ~1.4% (same tight clustering as 12 mT).
+
+## The tare — what makes readings TRUE GAPE
+
+Board B reports **gape = opening from closed**, not absolute separation:
+
+    gape_mm = (mV − baseline_mV) / m
+
+`baseline_mV` is each sensor's CLOSED reading, captured live. **The intercept b cancels in
+the subtraction**, so gape is immune to the per-unit mounting offset — every unit zeroes to
+itself and reads 0.00 mm closed. This is the mechanism that lets one lab calibration serve
+many differently-mounted animals: linearize once, mount so closed sits on the ramp, tare
+per unit at install.
+
+- **Baseline capture:** automatic ~1.5 s after boot (hold pegs closed), **gated to on-ramp
+  readings** — an off-ramp/clamped sensor is refused, not zeroed to junk. Re-baseline anytime
+  via the serial `zero` command or the dashboard **Zero** button (needed after re-seating a
+  peg or separating the magnet/sensor halves).
+- **"Closed" band:** within **±0.05 mm** of baseline reads as closed (≈ noise floor, well
+  below any real gape) so closed is steady, not flickering; any real press clears it instantly.
+- Baselines live in RAM (re-captured each boot / on `zero`). **Deployment TODO:** persist to
+  flash so they survive a power cycle (Phase 2).
+
+## Operating assumptions (stated, not proven)
+- **Hinge-arc error is minimal** (professor's ruling for this oyster size/opening). The
+  peg/oyster opens on an arc, not the carriage's straight line, so rig-calibrated mm are not
+  *exactly* true mouth-gape mm at wide openings. The tare removes the *offset*; it does **not**
+  remove this *arc-scale* error. Accepted assumption; revisit if a future animal opens wider.
+- **Match the magnet:** the tare cancels offset, not slope. The magnet used at linearization
+  must match the deployed magnet, or gape is scaled wrong.
+
+## Deployment range (real oysters) — later
+Professor prefers **3 mT** for large oysters (longest operating range, active region at
+larger gaps). The *method* proven here (linearize → mount so closed is on-ramp → tare) is
+identical at any range; deployment re-runs it at the chosen range once the oyster geometry
+is known. 25 mT is the bench range only.
+
+---
+
+## Earlier: 12 mT bench (SUPERSEDED — retained for the offset findings)
+
 
 All 3 peg sensors are linearized at **12 mT** on the rig (Board A), window
 **11.0–24.0 mm**, SCALE 1024/29696, OUT 10/90, Extrapolation OFF. Each sensor keeps
