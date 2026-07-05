@@ -3,11 +3,25 @@
 Non-contact measurement of oyster valve **gape** (how far the shells open and
 close) using a Micronas **HAL 2425** Hall-effect sensor on one shell and a small
 magnet on the other. As the gap changes, the sensor output changes. This repo
-covers the first engineering stage: **calibrating and linearizing the sensor so
-its output reads linearly in millimetres of gape.**
+covers the sensor engineering: characterizing and **linearizing** the HAL 2425 so
+its output reads linearly in millimetres, then a **three-sensor bench system**
+(Board B) that shows live gape on a web dashboard, with a **per-unit tare** so
+each unit reports true gape from its own closed baseline.
 
 This is a clean restart. Nothing here is inherited unverified from prior work —
 every constant is measured and documented.
+
+---
+
+## Demo
+
+![Oyster gape dashboard demo](docs/demo.gif)
+
+Three clothespin "oysters" on Board B's live dashboard — each shell opens in
+proportion to the measured gape. Closed reads 0.00 mm (per-unit tare); the
+slightest press registers immediately.
+**[Watch the full video →](https://github.com/IamTemmy/Oyster_gape/releases/tag/v0.1-bench-demo)**
+· more in [`docs/demo.md`](docs/demo.md).
 
 ---
 
@@ -15,25 +29,47 @@ every constant is measured and documented.
 
 ```
 Oyster_gape/
-  firmware/        ESP32 sketches (one folder per sketch)
-    01_leadscrew_calibration/
-  host/            Python tools that talk to the ESP32 (loggers, plotting)
-  hardware/        Schematic, wiring notes, photos
+  firmware/                     ESP32 sketches (one folder per sketch)
+    01_leadscrew_calibration/   rig: leadscrew mm/pulse calibration
+    02_characterization_sweep/  rig: distance vs sensor-output sweeps
+    03_linearization/           rig: Micronas linearization workflow
+    04_board_b_readout/         Board B: 3-sensor serial readout
+    05_board_b_dashboard/       Board B: WiFi web dashboard
+    06_board_b_tare/            Board B: 25 mT + tare (current) — true gape
+  host/             Python tools that talk to the ESP32 (loggers, plotting)
   docs/
-    procedures/    Step-by-step procedures, one per stage
-  data/            Raw captures (CSV) + their plots
+    procedures/     Step-by-step procedures, one per stage (01–03)
+    demo.md         Bench demo — GIF + full-video link
+  data/
+    analysis/          Linearization log, deployment_calibration.md, plots
+    range_test_runs/   Magnetic-range ladder sweeps
+    sim_test_data/     Per-sensor 25 mT linearized verify CSVs
+    cap_test_run/      Filter-cap A/B test
   README.md
 ```
 
 ## Current stage
 
-**02 — Characterization sweep.** Leadscrew calibrated (**0.001 mm/pulse**,
-Procedure 01). Now sweeping distance vs sensor output to (a) pick the analog
-front end (÷1.5 vs ÷2 divider, cap vs no cap) and (b) select the magnetic range.
-See `docs/procedures/02_characterization_sweep.md`.
+**Bench system working — 25 mT + tare (Board B).** The full method is proven on
+three clothespin "oysters" (pegs standing in for real animals):
 
-Next: range selection → per-sensor 2-point calibration → 16-setpoint
-linearization in the Micronas tool → verification.
+- Sensors characterized and **linearized** (Micronas workflow, Procedure 03),
+  first at 12 mT then re-done at **25 mT** (window 8.0–20.0) so the closed peg sits
+  on the active ramp instead of in the dead zone.
+- **Board B** (ESP32-WROVER) reads all three sensors (S1/S2/S3 → GPIO34/35/32, all
+  ADC1) and serves a live **web dashboard** (`firmware/06_board_b_tare`).
+- **Per-unit tare:** each unit records its own closed reading as a baseline and
+  reports **true gape from closed** — `gape = (mV − baseline) / m`. The intercept
+  cancels in that subtraction, so the per-unit mounting offset drops out. This is
+  what lets one lab calibration serve many differently-mounted animals.
+
+Per-sensor lines and the full method:
+[`data/analysis/deployment_calibration.md`](data/analysis/deployment_calibration.md).
+Watch it work: [demo](docs/demo.md).
+
+**Next (deployment):** re-run the same method at the range chosen for real oysters
+(see decisions log), add a mounting jig for consistent closed standoff, and
+flash-persist the baselines so a tare survives power cycles.
 
 ---
 
@@ -83,11 +119,15 @@ linearization in the Micronas tool → verification.
 - **Analog front end:** **÷1.5 divider, no cap** (Stage 02 2×2 test). ÷1.5
   proven not to clip (back-scales to ÷2 within 0.3%) and gives more resolution;
   cap unneeded because 200-sample averaging drives noise to ~0.5 mV.
-- **Magnetic range:** the prior workflow used ±3 mT, but with the current magnet
-  ±3 mT is **blind below ~12 mm** (the near field clips). For a small-mm gape
-  window the data points to **±25 mT** (usable from ~2 mm) or **±50 mT** (from
-  ~0 mm). Final choice pending the measured gape window. Decided per-data, not
-  inherited.
+- **Magnetic range:** ±3 mT is **blind below ~12 mm** with this magnet (near field
+  clips); higher ranges reach smaller gaps. **Bench: ±25 mT** — chosen and
+  bench-proven (window 8.0–20.0) because it places the peg's closed gap on the ramp
+  without pushing the window start into the steep shoulder (the F:000000 spike).
+  **Deployment: likely ±3 mT** for real (larger) oysters — the professor's lean,
+  for its longer operating range at larger separations. The *method* is
+  range-independent (linearize → mount so closed is on-ramp → tare), so deployment
+  re-runs it at the final range once the oyster geometry is known.
+  *(Updated 2026-07-05; earlier this read "final choice pending the measured gape window.")*
 - **Distance constant:** measured = **0.001 mm/pulse** (1000 pulses/mm,
   2.0 mm/rev), Procedure 01.
 - **Output polarity:** sensor output **falls** with increasing gap
