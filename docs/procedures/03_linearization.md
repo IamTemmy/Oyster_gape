@@ -68,12 +68,21 @@ start the campaign at **100 mT** and work down the table.
    - it goes to END → click **Calibration Point 2** → press ENTER
    - then **Calculate Signal Path** → **Write Signal Path**.
 4. **16-point measurement** (Measurement Tool open): in the sketch run **`lin`**:
-   - at each of the 16 stops, register the reading in the tool, press ENTER
+   - at each of the 16 stops, wait until the magnet has **stopped moving**, click
+     **Yes** on the tool's "position reached?" prompt, then press ENTER to advance.
    - when done, the tool **saves the setpoint file** itself.
-5. **Write setpoints** (Linearization Tool): load that file → **Write Setpoints**.
+5. **Linearize + write setpoints** (Linearization Tool): Load Meas. File →
+   **Linearize with Extrapolation UNCHECKED** (clamps the output outside the window)
+   → **inspect the green Transfer Curve before writing** — a smooth bow is good, a
+   small kink is usually fine, but a **big spike (hundreds–thousands of %FS) means DO
+   NOT write**: the write fails with `error during programming F:000000`. That spike
+   means the window START sits on the curve's steep shoulder — move START further out
+   and redo from step 2. When the green curve is clean → **Write Setpoints**.
 6. **Verify:** disconnect the programmer from OUT. In the logger set
    `:range <range>mT_linearized`, then in the sketch run **`verify`**. The logger
    saves `charac_<range>mT_linearized_run1.csv` + `.png`.
+
+**The green Transfer Curve is the go/no-go; the `verify` sweep is the final arbiter.**
 
 **A good verify looks like:** flat clamp (10%) → straight diagonal ramp across
 the window → flat clamp (90%). The straight ramp is the proof. Overlay it on the
