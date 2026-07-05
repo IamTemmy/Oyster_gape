@@ -2,6 +2,13 @@
    04_board_b_readout.ino
    Oyster_gape project  |  MBRACE
    -----------------------------------------------------------------------------
+   ⚠  SUPERSEDED — REFERENCE ONLY (12 mT stage).
+      This sketch carries the OLD 12 mT calibration constants. The peg sensors are
+      now burned at 25 mT, so flashing this would report WRONG millimetres (25 mT
+      voltages read through 12 mT lines — no error, just silently wrong).
+      >>> Flash firmware/06_board_b_tare for correct, tared gape. <<<
+      Kept as the minimal serial-only readout reference from the 12 mT stage.
+   -----------------------------------------------------------------------------
    PURPOSE
      Board B — the demo / system board. NO actuator, NO Micronas tool. It reads
      the THREE already-linearized peg sensors continuously and converts each to

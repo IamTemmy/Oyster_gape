@@ -2,6 +2,14 @@
    05_board_b_dashboard.ino
    Oyster_gape project  |  MBRACE
    -----------------------------------------------------------------------------
+   ⚠  SUPERSEDED — REFERENCE ONLY (12 mT stage, pre-tare).
+      This sketch carries the OLD 12 mT calibration constants and has NO tare. The
+      peg sensors are now burned at 25 mT, so flashing this would report WRONG
+      millimetres (25 mT voltages read through 12 mT lines — no error, just
+      silently wrong).
+      >>> Flash firmware/06_board_b_tare for correct, tared gape. <<<
+      Kept as the pre-tare dashboard reference from the 12 mT stage.
+   -----------------------------------------------------------------------------
    PURPOSE
      Board B — full demo firmware. Reads the THREE linearized peg sensors and
      serves a live WEB DASHBOARD showing each as an oyster whose shell opens by
