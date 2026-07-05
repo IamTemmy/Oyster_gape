@@ -10,24 +10,30 @@ This is the same procedure for all eight ranges — only the **window** changes.
 
 ---
 
-## Windows (START / END per range)
+## Windows (START / END per range) — verified
 
-| Range | START (mm) | END (mm) |
-|-------|-----------|----------|
-| 400 mT | 1.0 | 10.0 |
-| 200 mT | 1.0 | 10.0 |
-| 100 mT | 1.0 | 10.0 |
-| 50 mT | 1.5 | 11.0 |
-| 25 mT | 4.0 | 16.0 |
-| 12 mT | 7.0 | 22.0 |
-| 6 mT | 11.0 | 30.0 |
-| 3 mT | 15.0 | 39.0 |
+These are the **corrected, verified** windows — the value you type: `window START END`.
+Each START was pushed past that range's steep shoulder; the initial guesses were too
+low and made the linearizer's inverse spike (F:000000, unwritable). Full narrative in
+`data/analysis/linearization_log.md`.
 
-START sits just past each range's clip lift-off (must be monotonic — the
-datasheet says a clipped/flat span can't be linearized); END sits at the knee
-(~90% of the drop), capturing nearly the full swing while staying off the flat
-tail. Start the campaign at **400 mT** (gentlest: no clip, smallest swing) to
-shake out the workflow, then work down the table.
+| Range | START (mm) | END (mm) | Status |
+|-------|-----------|----------|--------|
+| 100 mT | 4.0 | 14.0 | verified (2.6%) |
+| 50 mT | 6.0 | 16.0 | verified (1.4%, cleanest) |
+| 25 mT | 8.0 | 20.0 | verified (2.0%) — bench build |
+| 12 mT | 11.0 | 24.0 | verified (2.3%) |
+| 6 mT | 17.0 | 32.0 | verified (2.6%) |
+| 3 mT | 20.0 | 38.0 | verified (3.1%) |
+| 200 mT | — | — | **IMPRACTICAL** — swing vs gentle-start squeeze |
+| 400 mT | — | — | **IMPRACTICAL** — swing too small to calibrate |
+
+START sits just past each range's steep shoulder (further out as sensitivity rises —
+a clipped/flat or too-steep span can't be linearized); END sits before the flat tail.
+The table gives the **window command**; the *measured* ramp runs a little wider (e.g.
+25 mT command 8.0–20.0 → measured ramp ~8.5–20.7, see the range ladder in
+`linearization_log.md`). **200 mT and 400 mT do not linearize with this magnet**, so
+start the campaign at **100 mT** and work down the table.
 
 ## Settings (same for every range)
 

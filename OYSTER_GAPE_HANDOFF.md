@@ -9,6 +9,31 @@ provided separately in the new chat) — read the repo alongside this file.
 
 ---
 
+## ⚑ Current status (2026-07-05) — read this first
+
+The bench simulation planned in **Section 8 is COMPLETE**. Where things actually are:
+
+- All 3 peg sensors **re-linearized at 25 mT** (window 8.0–20.0). 12 mT was the first
+  pass, superseded because the closed peg fell in the dead zone (mounting offset).
+- **Board B** runs a live **web dashboard** (`firmware/06_board_b_tare`), reading all
+  3 sensors and reporting **true gape from closed** via a per-unit **tare**
+  (`gape = (mV − baseline) / m`; the intercept cancels, so mounting offset drops out).
+- A **demo** is published: Release `v0.1-bench-demo` (playable video) + `docs/demo.gif`.
+
+**Canonical current references** (trust these over Section 8's original plan):
+- `README.md` — current stage + decisions log
+- `data/analysis/deployment_calibration.md` — 25 mT lines, the rig/peg offset story, tare
+- `docs/procedures/04_board_b.md` — Board B build + tare procedure
+
+**Next: deployment** — re-linearize at the range chosen for real oysters (likely 3 mT
+for larger animals), a mounting jig for consistent closed standoff, and flash-persisted
+baselines so a tare survives a power cycle.
+
+Sections 1–7 below (hardware, firmware, Micronas workflow, findings, range ladder) are
+still accurate reference. Section 8 is the *original* bench-sim plan, now executed.
+
+---
+
 ## 1. Project goal
 
 Measure oyster shell **gape** (how far the shell is open, in mm) non-contact, for
@@ -19,8 +44,8 @@ engineering task has been to **linearize** the sensor so its output reads
 proportional to gap distance.
 
 Status: sensor characterization and linearization are **complete** (Stage 02 + 03).
-Six magnetic ranges are linearized and verified. Now moving to a **bench simulation**
-of the deployed system before water deployment.
+Six magnetic ranges are linearized and verified. The **bench simulation is now complete**
+too (see Current status above) — the project is moving toward water deployment.
 
 ---
 
@@ -185,7 +210,13 @@ Full narrative + the CFX experiment are in `data/analysis/linearization_log.md`.
 
 ---
 
-## 8. TODAY'S AGENDA — bench simulation (dry run of deployment)
+## 8. Original bench-simulation plan (COMPLETE — see Current status)
+
+> This section is the **original plan** for the bench simulation. It has all been
+> executed, and the resulting system (25 mT + tare, Board B dashboard, published demo)
+> **supersedes the 12 mT details below**. Kept for design rationale and wiring. For
+> current truth see `deployment_calibration.md`, `README.md`, and
+> `docs/procedures/04_board_b.md`.
 
 **Objective:** replicate the deployed system on the bench before water deployment,
 using 3 pegs as 3 "oysters," each with magnet on one peg face and sensor on the
