@@ -25,29 +25,6 @@ slightest press registers immediately.
 
 ---
 
-## Repo structure
-
-```
-Oyster_gape/
-  firmware/                     ESP32 sketches (one folder per sketch)
-    01_leadscrew_calibration/   rig: leadscrew mm/pulse calibration
-    02_characterization_sweep/  rig: distance vs sensor-output sweeps
-    03_linearization/           rig: Micronas linearization workflow
-    04_board_b_readout/         Board B: 3-sensor serial readout
-    05_board_b_dashboard/       Board B: WiFi web dashboard
-    06_board_b_tare/            Board B: 25 mT + tare (current) — true gape
-  host/             Python tools that talk to the ESP32 (loggers, plotting)
-  docs/
-    procedures/     Step-by-step procedures, one per stage (01–03)
-    demo.md         Bench demo — GIF + full-video link
-  data/
-    analysis/          Linearization log, deployment_calibration.md, plots
-    range_test_runs/   Magnetic-range ladder sweeps
-    sim_test_data/     Per-sensor 25 mT linearized verify CSVs
-    cap_test_run/      Filter-cap A/B test
-  README.md
-```
-
 ## Current stage
 
 **Bench system working — 25 mT + tare (Board B).** The full method is proven on
