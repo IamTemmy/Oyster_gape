@@ -13,6 +13,10 @@
        lin     -> walks 16 evenly-spaced stops across START..END, waiting for
                   ENTER at each while you register the reading in the Micronas
                   Measurement Tool. (16 = the HAL 2425's setpoint count.)
+       probe   -> drive to one absolute mm position, take an averaged reading,
+                  and STAY there. Used for the batch flow: after a per-unit
+                  2-point cal + shared setpoints, one reading at a known
+                  position gives that unit's offset (b) without a full sweep.
        verify  -> full 100 mm sweep of the now-linearized sensor, streamed in the
                   same format the host logger captures, so you can see the
                   straightened curve (flat clamp -> straight ramp -> flat clamp).
@@ -71,6 +75,8 @@ long  cumulativePulses = 0;
 float winStart = 1.0;                       // default = 400 mT window
 float winEnd   = 10.0;
 
+const uint16_t PROBE_SETTLE_MS = 400;   // settle before probe sampling
+
 void setup() {
   pinMode(STEP_PIN, OUTPUT); pinMode(DIR_PIN, OUTPUT);
   digitalWrite(STEP_PIN, LOW); digitalWrite(DIR_PIN, DIR_AWAY_LEVEL);
@@ -92,6 +98,7 @@ void loop() {
   else if (line.equalsIgnoreCase("lin"))    doLin();
   else if (line.equalsIgnoreCase("verify")) doVerify();
   else if (line.startsWith("window"))       setWindow(line);
+  else if (line.startsWith("probe"))        doProbe(line);
   else if (isInteger(line))                 jog(line.toInt());
   else { Serial.print(F("[?] ")); Serial.println(line); Serial.println(F("    type 'help'")); }
 }
@@ -125,6 +132,21 @@ void doLin() {
   }
   returnDatum();
   Serial.println(F("# Done. Save the file in Micronas, then 'Write Setpoints'."));
+}
+
+void doProbe(String line) {
+  line.remove(0, 5); line.trim();               // drop "probe"
+  if (line.length() == 0) { Serial.println(F("[?] usage: probe <mm>")); return; }
+  float mm = line.toFloat();
+  Serial.print(F("# PROBE -> ")); Serial.print(mm, 2); Serial.println(F(" mm"));
+  moveTo(mmToPulses(mm));
+  delay(PROBE_SETTLE_MS);                       // let the carriage settle
+  float avg, sd;
+  sampleStats(avg, sd);
+  Serial.print(F(">> probe  dist = ")); Serial.print(cumulativePulses * MM_PER_PULSE, 3);
+  Serial.print(F(" mm   reading = ")); Serial.print(avg, 1);
+  Serial.print(F(" mV   (SD ")); Serial.print(sd, 2); Serial.println(F(" mV)"));
+  Serial.println(F("# holding position (does NOT return to datum)"));
 }
 
 void doVerify() {
@@ -224,6 +246,7 @@ void banner() {
   Serial.println(F("  cal             2-point calibration positioning"));
   Serial.println(F("  lin             16-stop linearization walk"));
   Serial.println(F("  verify          100 mm sweep of linearized output"));
+  Serial.println(F("  probe <mm>      go to <mm>, read averaged mV, stay put"));
   Serial.println(F("  <integer>       jog pulses (1000 = 1 mm, + = away)"));
   Serial.println(F("  pos / help"));
   Serial.println(F("  (during cal/lin: ENTER = advance, q = abort)"));
