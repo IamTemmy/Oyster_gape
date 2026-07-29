@@ -1,0 +1,49 @@
+
+Use Python 3 and up for these scripts.
+
+If python isn't already installed on the machine, 
+install the recent version for the machine's operating system at:
+python.org/downloads
+
+Pip should install with the current version of python, 
+but if for some reason pip isn't installed yet, 
+follow the instructions at:
+Pypi.org/project/pip
+
+In Windows, MacOS, or Linux command shell install necessary libraries using:
+python -m pip install --user numpy scipy matplotlib
+
+Or if multiple versions of python are installed:
+python3 -m pip install --user numpy scipy matplotlib
+
+If a Python Version lower than 3 is used, 
+scripts will need to be run using:
+python3 nameOfScript.py
+
+Otherwise, the script can be run with the command:
+python nameOfScript.py
+
+Script descriptions:
+[Executable Scripts]
+-MbraceFTP.py will list experiment files from Mbrace.xyz's file server 
+and allow the user to download the file to the current folder.
+
+-MbracePlot.py will plot the selected file from the directory selected. 
+This script needs Mbrace.py to be in the same folder.
+Since this script requires data files to use, 
+it should be used after files have been downloaded
+such as after using MbraceFTP.py. 
+
+-MbraceCompositeData.py has two main functions. 
+One function will collect all experiment data from the server 
+and download it into a folder named "Mbrace Composite Data" 
+and organize the data into folders based on the MAC address in the file names. 
+The second function will composite the files of each MAC address based on the date range the files belong to.
+
+[Modules]
+-Mbrace.py is a module containing a class named Mbrace_Data that is used to interpret the data in an experiment's binary file 
+and convert it into Numpy arrays. 
+The arrays are properties that can be accessed once an Mbrace instance (class object) is created. 
+This script is a module to be used by other scripts 
+and not to be run like an executable script.
+
