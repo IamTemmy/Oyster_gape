@@ -28,3 +28,19 @@ Result: PASS
 Backup-cell check: N/A (no cell fitted by design).
 
 Status: PASS
+
+## Step 2 — SD card alone (CardInfo)
+Date: 2026-07-30
+Board: same known-good Nano (RTC still connected on I2C; no conflict)
+Wiring: CS=D10, SCK=D13, MOSI=D11, MISO=D12, VCC=5V, GND=GND (HW-125 module)
+Sketch: Arduino IDE example SD > CardInfo, chipSelect set to 10
+
+Result: PASS
+  - "Wiring is correct and a card is present."
+  - Card type SDHC, Volume FAT32, ~29.1 GB, 61,037,344 total blocks read.
+  - Confirms full SPI chain works, INCLUDING SCK/D13 health on this board
+    (closes the earlier ICSP/SCK concern from board diagnosis).
+Notes: "Initializing SD card..." prints twice = normal for CardInfo. Card
+       empty (no files) = expected; logger will create files.
+
+Status: PASS
