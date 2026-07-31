@@ -44,3 +44,22 @@ Notes: "Initializing SD card..." prints twice = normal for CardInfo. Card
        empty (no files) = expected; logger will create files.
 
 Status: PASS
+
+## Step 3a — Sensors alone (3x HAL 2425 on A0/A1/A2)
+Date: 2026-07-30
+Board: same known-good Nano (peg rig from Board B; magnets in place)
+Wiring: S1=A0, S2=A1, S3=A2; VDD=5V, GND=GND (5 V native, NO divider)
+Sketch: sketches/03a_sensor_read_test/sensor_read_test.ino (delay 1000 for eyeball test)
+
+Result: PASS
+  - Noise floor at rest: spread 0-2 counts (occasionally 4) on all channels.
+    -> 10-bit internal ADC is quiet here; effective resolution is good with
+       no divider. Answers the resolution question with a measured number.
+  - Resting values ~130-138 on all three (none pinned at 0 or 1023).
+  - Each peg move swings ONLY its own channel (S1->~740, S2->~750, S3->~900),
+    others stay flat -> sensors read + respond, no cross-talk.
+  - Numbers ~4x smaller than ESP 12-bit path (0-1023 vs 0-4095) = expected.
+Notes: large 'spread' values during a move = window capturing full travel,
+       not noise. Print rate 1 Hz for readability; logger runs at 10 Hz.
+
+Status: PASS
