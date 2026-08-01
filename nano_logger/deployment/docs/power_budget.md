@@ -23,3 +23,29 @@ Lifetime at 51 mA (constant):
 
 Targets for later stages: D2 sleep between samples, D3 sensor power-gating,
 plus stripping parasitic loads. Goal: >= 1 month on a realistic pack.
+
+## D2 (v1, RTC-alarm sleep) — SUPERSEDED
+Date: 2026-07-31
+Sketch: nano_logger_deploy_D2.ino (RTC DS3231 alarm as wake source, 1 Hz)
+Result: sleep-wake mechanism confirmed working (once-per-second wakes; garbled
+  serial across sleep = UART powering down = expected). Current dropped from
+  51 mA baseline to ~37-40 mA steady with spikes to 51-60 mA on each wake.
+
+Two problems found:
+  1. Bug: after waking, the loop took multiple fast samples before sleeping
+     again (files showed ~100 ms / ~19 ms row spacing, not clean 1 Hz).
+  2. Design limitation: DS3231 alarm min interval = 1 s, forcing 1 Hz. This
+     created a false 10Hz-vs-battery tradeoff.
+
+Decision (per supervisor): the RTC alarm is the WRONG waker for pacing. Use the
+ATmega's own watchdog/timer interrupt to wake every 100 ms -> keeps 10 Hz AND
+sleeps between samples. RTC is retained for TIMESTAMPS only, not pacing. This
+dissolves the 1Hz/10Hz tradeoff. Rebuilding D2 on this approach (see D2 v2).
+
+Note: ~40 mA floor here is dominated by always-on parasitics (CH340 USB chip,
+power LED, SD idle, RTC) that do NOT sleep — not the CPU. Big wins remain in
+stripping those + sensor/SD gating, not in the sleep method itself.
+
+Legacy-repo check: jamesaddy789 repo has NO sleep/timer-interrupt code (verified
+by full grep) — it is a millis() busy-loop. The sleep approach is new to our
+build, not inherited.
