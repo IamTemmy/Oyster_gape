@@ -49,3 +49,29 @@ stripping those + sensor/SD gating, not in the sleep method itself.
 Legacy-repo check: jamesaddy789 repo has NO sleep/timer-interrupt code (verified
 by full grep) — it is a millis() busy-loop. The sleep approach is new to our
 build, not inherited.
+
+## D2 v2 — Sleep between samples (timer/watchdog wake, per supervisor)
+Date: 2026-07-31
+RTC now used for TIMESTAMPS ONLY; pacing done by the ATmega's own timer.
+Measured on E3631A @ ~5 V into 5V pin, USB off (same setup as D1 baseline 51 mA).
+
+Option A — D2a_wdt_8hz.ino: watchdog DEEP sleep (powerDown), SLEEP_120MS.
+  Measured rate: ~6.6 Hz (120 ms WDT step + read/write overhead).
+  Current: steady ~38 mA; spikes 41-60 mA on wake.  (-13 mA vs baseline)
+
+Option B — D2b_timer_10hz.ino: Timer1 CTC 100 ms, light IDLE sleep.
+  Measured rate: 9.9 Hz (exact 10 Hz; ms steps cleanly by 100).
+  Current: steady ~45 mA; spikes 51-61 mA on wake.  (-6 mA vs baseline)
+
+Finding: deeper sleep (A) saves ~7 mA more than light sleep (B), BUT both are
+still ~38-45 mA — i.e. sleep depth is a MINOR lever. The floor is dominated by
+always-on PARASITICS that do not sleep with the CPU: CH340 USB-serial chip,
+power LED, SD card idle, DS3231. Removing those is the next (big) win.
+
+Leaning: D2b (exact 10 Hz) is the likely deployment choice — keeps the full
+spawning-FFT rate and gives up only ~7 mA, which parasitic-stripping (D3) will
+dwarf. Decision deferred until D3 numbers are in.
+
+Rate note: in D2a (power-down), millis() does not advance during sleep, so the
+ms column is not a clock there — rate judged via RTC iso_time / sample count.
+In D2b (IDLE), millis() runs normally and ms steps by ~100 as expected.
