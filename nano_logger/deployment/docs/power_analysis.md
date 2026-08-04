@@ -56,3 +56,26 @@ KEY FINDING: always-on sensors are the LARGEST load in the system (~45 mA for 6)
 bigger than the CPU (~11) or all parasitics (~10) combined. This is the #1 target.
 Gating sensors (~3 ms on per 100 ms = ~3% duty) drops their averaged draw from
 ~45 mA to ~1.4 mA. Biggest single win available -> validates GPIO-gating design.
+
+## State 5 — Sensors GATED (VDD -> GPIO D4/D5/D6, direct-GPIO), asleep
+Sketch: gated_sensor_test.ino — power sensors ON, settle 3 ms, read, power OFF,
+deep-sleep 120 ms. Sensors powered ~3% duty cycle.
+Wiring: S1 VDD=D4/OUT=A0, S2 VDD=D5/OUT=A1, S3 VDD=D6/OUT=A2, all GND=GND.
+
+Reading: steady 16 mA, with brief twitches to 20-24 mA.
+Interpretation:
+  - 16 mA = time-average (sensors mostly OFF/asleep). Matches RTC+SD floor: the
+    3 sensors' ~23 mA of always-on draw collapsed to ~0.7 mA averaged.
+  - 20-24 mA twitches = the ~3 ms sensor-ON pulses caught on display refresh;
+    each ~7-8 mA/sensor. Their presence CONFIRMS the gating is powering sensors
+    during reads (flat 16 mA with no twitch would mean sensors never powered).
+
+Comparison (3 sensors, asleep): UNGATED 39 mA -> GATED 16 mA.
+  => ~23 mA reclaimed (3 sensors). Six-sensor projection: ~61 mA -> ~17 mA,
+     ~44 mA saved by gating alone. Largest single win in the analysis.
+Method note: gated draw is a ~3% duty pulse, invisible as a steady value on the
+E3631A; the 16 mA average is the battery-relevant number. Exact per-pulse energy
+needs a profiler, for the final battery estimate.
+
+Verification: the periodic 20-24 mA twitch is itself proof the gate opens/closes;
+a separate "comment out the power-OFF line -> jumps to ~39 mA" test also available.
