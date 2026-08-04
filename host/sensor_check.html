@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sensor Check — 25 mT batch QA</title>
+<style>
+  :root{
+    --bg:#0e1316; --panel:#161e23; --panel2:#1c262c; --edge:#26343c;
+    --ink:#dbe4e6; --mut:#7c8b92; --grid:#223038;
+    --trace:#54d6c7; --pass:#41dd88; --fail:#ff5b52; --warn:#f2b134;
+    --shade:rgba(84,214,199,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:15px/1.5 ui-sans-serif,-apple-system,Segoe UI,Roboto,sans-serif;
+    padding:32px 20px 64px; max-width:920px; margin:0 auto;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:4px}
+  h1{font-size:20px;font-weight:650;letter-spacing:.02em;margin:0}
+  .sub{color:var(--mut);font-size:13px}
+  .band{color:var(--mut);font-size:12px;margin:10px 0 22px;
+    border-left:2px solid var(--edge);padding-left:10px}
+  .band b{color:var(--ink);font-weight:600}
+
+  #drop{
+    border:1.5px dashed var(--edge); border-radius:14px;
+    background:linear-gradient(180deg,var(--panel),#121a1f);
+    padding:44px 20px; text-align:center; cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  #drop:hover,#drop.hot{border-color:var(--trace);background:linear-gradient(180deg,#182228,#121a1f)}
+  #drop .big{font-size:16px;font-weight:600}
+  #drop .small{color:var(--mut);font-size:13px;margin-top:6px}
+  #drop.hot .big{color:var(--trace)}
+  input[type=file]{display:none}
+
+  #out{margin-top:26px;display:flex;flex-direction:column;gap:18px}
+  .card{background:var(--panel);border:1px solid var(--edge);border-radius:12px;overflow:hidden}
+  .card.pass{border-left:4px solid var(--pass)}
+  .card.fail{border-left:4px solid var(--fail)}
+  .top{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--panel2)}
+  .verdict{
+    font-family:ui-monospace,monospace;font-weight:700;font-size:13px;letter-spacing:.12em;
+    padding:5px 12px;border-radius:6px;flex:none;
+  }
+  .verdict.pass{background:rgba(65,221,136,.14);color:var(--pass);box-shadow:0 0 0 1px rgba(65,221,136,.35) inset}
+  .verdict.fail{background:rgba(255,91,82,.14);color:var(--fail);box-shadow:0 0 0 1px rgba(255,91,82,.4) inset}
+  .fname{font-weight:600;font-size:14px;word-break:break-all}
+  .body{padding:16px}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 16px;margin-bottom:14px}
+  @media(max-width:620px){.grid{grid-template-columns:repeat(2,1fr)}}
+  .metric .k{color:var(--mut);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+  .metric .v{font-family:ui-monospace,monospace;font-size:17px;margin-top:2px}
+  .v.bad{color:var(--fail)}
+  .formula{font-family:ui-monospace,monospace;font-size:13px;color:var(--trace);
+    background:#111a1f;border:1px solid var(--edge);border-radius:8px;padding:9px 12px;margin-bottom:14px}
+  .reasons{list-style:none;margin:0 0 14px;padding:0}
+  .reasons li{color:var(--fail);font-size:13px;padding:3px 0 3px 18px;position:relative}
+  .reasons li::before{content:"→";position:absolute;left:0;color:var(--fail)}
+  .warn{color:var(--warn);font-size:13px;margin-bottom:12px}
+  svg{width:100%;height:auto;display:block;background:#0d1418;border:1px solid var(--edge);border-radius:8px}
+  .leg{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;color:var(--mut);font-size:12px}
+  .leg span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:14px;height:0;border-top:2px solid}
+  footer{color:var(--mut);font-size:12px;margin-top:30px;text-align:center}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Sensor Check</h1>
+    <span class="sub">25 mT batch · drop a verify sweep, get go / no-go</span>
+  </header>
+  <div class="band">
+    Pass band: slope <b>205–228 mV/mm</b> · linearity <b>≤ 3%</b> · ramp starts by <b>9.5 mm</b> · window <b>8–20 mm</b>.
+    Everything runs in this page — nothing is uploaded or saved.
+  </div>
+
+  <label id="drop" for="fileInput">
+    <div class="big">Drop verify CSV files here</div>
+    <div class="small">or click to choose — one sensor or a whole batch at once</div>
+    <input id="fileInput" type="file" accept=".csv" multiple>
+  </label>
+
+  <div id="out"></div>
+  <footer>Reads <span class="mono">Distance_mm, Reading_mV</span> sweeps. Judgment matches the batch analysis; the Micronas green-curve check is still your call at write time.</footer>
+
+<script>
+const CFG = { SLOPE_LO:205, SLOPE_HI:228, LIN_MAX:3.0, RAMP_START_MAX:9.5, WIN:[8.0,20.0] };
+
+function parseCSV(text){
+  const d=[], r=[]; let win=null;
+  for(const raw of text.split(/\r?\n/)){
+    const s=raw.trim();
+    if(!s) continue;
+    if(s[0]==='#'){
+      const m=s.match(/window=([\d.]+)-([\d.]+)/);
+      if(m) win=[parseFloat(m[1]),parseFloat(m[2])];
+      continue;
+    }
+    if(/^distance/i.test(s)) continue;
+    const p=s.split(',');
+    const x=parseFloat(p[0]), y=parseFloat(p[1]);
+    if(Number.isFinite(x)&&Number.isFinite(y)){ d.push(x); r.push(y); }
+  }
+  return {d,r,win};
+}
+
+function analyze(d,r){
+  if(d.length<10) return {ok:false,err:"too few samples — is this a sweep file?"};
+  const lo=Math.min(...r), hi=Math.max(...r), span=hi-lo;
+  const band=[];
+  for(let i=0;i<d.length;i++){ if(r[i]>lo+0.05*span && r[i]<hi-0.05*span) band.push([d[i],r[i]]); }
+  if(band.length<5) return {ok:false,err:"no ramp found — output is flat/clamped (check cal + green curve)",lo,hi};
+  const xs=band.map(p=>p[0]), ys=band.map(p=>p[1]), n=xs.length;
+  const mx=xs.reduce((a,b)=>a+b,0)/n, my=ys.reduce((a,b)=>a+b,0)/n;
+  let sxy=0,sxx=0; for(let i=0;i<n;i++){ sxy+=(xs[i]-mx)*(ys[i]-my); sxx+=(xs[i]-mx)**2; }
+  const m=sxy/sxx, b=my-m*mx;
+  let md=0; for(let i=0;i<n;i++){ md=Math.max(md,Math.abs(ys[i]-(b+m*xs[i]))); }
+  const lin=100*md/span;
+  return {ok:true,lo,hi,slope:m,intercept:b,lin,rampLo:xs[0],rampHi:xs[n-1]};
+}
+
+function judge(a){
+  if(!a.ok) return {pass:false,reasons:[a.err]};
+  const R=[];
+  if(a.slope<CFG.SLOPE_LO||a.slope>CFG.SLOPE_HI) R.push(`slope ${a.slope.toFixed(1)} outside ${CFG.SLOPE_LO}–${CFG.SLOPE_HI} mV/mm`);
+  if(a.lin>CFG.LIN_MAX) R.push(`linearity ${a.lin.toFixed(1)}% over ${CFG.LIN_MAX}% limit`);
+  if(a.rampLo>CFG.RAMP_START_MAX) R.push(`ramp starts at ${a.rampLo.toFixed(1)} mm (window shifted?)`);
+  return {pass:R.length===0,reasons:R};
+}
+
+function plot(d,r,a){
+  const W=640,H=300,pL=52,pR=14,pT=14,pB=34;
+  const xmax=Math.max(...d), ymax=Math.max(...r)*1.05;
+  const X=x=>pL+(x/xmax)*(W-pL-pR);
+  const Y=y=>H-pB-(y/ymax)*(H-pT-pB);
+  let g='';
+  // grid + y labels
+  for(let i=0;i<=4;i++){ const v=ymax*i/4, y=Y(v);
+    g+=`<line x1="${pL}" y1="${y}" x2="${W-pR}" y2="${y}" stroke="var(--grid)"/>`;
+    g+=`<text x="${pL-6}" y="${y+4}" fill="var(--mut)" font-size="10" text-anchor="end" font-family="monospace">${Math.round(v)}</text>`;
+  }
+  for(let x=0;x<=xmax;x+=20){ g+=`<text x="${X(x)}" y="${H-pB+16}" fill="var(--mut)" font-size="10" text-anchor="middle" font-family="monospace">${x}</text>`; }
+  // ramp shading
+  if(a.ok){ g+=`<rect x="${X(a.rampLo)}" y="${pT}" width="${X(a.rampHi)-X(a.rampLo)}" height="${H-pT-pB}" fill="var(--shade)"/>`; }
+  // clamps
+  if(a.ok!==undefined&&a.lo!==undefined){
+    for(const v of [a.lo,a.hi]){ const y=Y(v);
+      g+=`<line x1="${pL}" y1="${y}" x2="${W-pR}" y2="${y}" stroke="var(--mut)" stroke-dasharray="3 4" opacity=".5"/>`; }
+  }
+  // fit line across ramp
+  if(a.ok){ const x1=a.rampLo,x2=a.rampHi;
+    g+=`<line x1="${X(x1)}" y1="${Y(a.intercept+a.slope*x1)}" x2="${X(x2)}" y2="${Y(a.intercept+a.slope*x2)}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="5 4"/>`; }
+  // trace
+  let pts=''; for(let i=0;i<d.length;i++) pts+=`${X(d[i]).toFixed(1)},${Y(r[i]).toFixed(1)} `;
+  g+=`<polyline points="${pts}" fill="none" stroke="var(--trace)" stroke-width="1.8"/>`;
+  g+=`<text x="${pL}" y="${H-4}" fill="var(--mut)" font-size="10" font-family="monospace">distance (mm)</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
+}
+
+function card(name,d,r,win){
+  const a=analyze(d,r), v=judge(a);
+  const cls=v.pass?'pass':'fail', tag=v.pass?'PASS':'FAIL';
+  let metrics='', formula='', warn='';
+  if(a.ok){
+    const linBad=a.lin>CFG.LIN_MAX?'bad':'', slBad=(a.slope<CFG.SLOPE_LO||a.slope>CFG.SLOPE_HI)?'bad':'';
+    metrics=`
+      <div class="metric"><div class="k">Slope</div><div class="v ${slBad}">${a.slope.toFixed(1)}<span style="font-size:11px;color:var(--mut)"> mV/mm</span></div></div>
+      <div class="metric"><div class="k">Linearity</div><div class="v ${linBad}">${a.lin.toFixed(1)}%</div></div>
+      <div class="metric"><div class="k">Ramp</div><div class="v">${a.rampLo.toFixed(1)}–${a.rampHi.toFixed(1)}<span style="font-size:11px;color:var(--mut)"> mm</span></div></div>
+      <div class="metric"><div class="k">Clamps</div><div class="v">${Math.round(a.lo)}/${Math.round(a.hi)}</div></div>`;
+    const bs=a.intercept<0?`+ ${Math.abs(a.intercept).toFixed(0)}`:`- ${a.intercept.toFixed(0)}`;
+    formula=`<div class="formula">gape_mm = (mV ${bs}) / ${a.slope.toFixed(1)}</div>`;
+    if(win && (Math.abs(win[0]-CFG.WIN[0])>0.1||Math.abs(win[1]-CFG.WIN[1])>0.1))
+      warn=`<div class="warn">⚠ file window ${win[0]}–${win[1]} mm ≠ expected 8–20 mm — board may have reset the window</div>`;
+  }
+  const reasons = v.reasons.length ? `<ul class="reasons">${v.reasons.map(x=>`<li>${x}</li>`).join('')}</ul>` : '';
+  const leg = `<div class="leg">
+      <span><i class="sw" style="border-color:var(--trace)"></i>sensor trace</span>
+      <span><i class="sw" style="border-color:var(--warn);border-top-style:dashed"></i>linear fit</span>
+      <span><i class="sw" style="border-color:var(--mut);border-top-style:dashed"></i>clamps</span>
+      <span><i class="sw" style="border-color:var(--shade);border-top-width:10px"></i>ramp region</span></div>`;
+  return `<div class="card ${cls}">
+    <div class="top"><span class="verdict ${cls}">${tag}</span><span class="fname">${name}</span></div>
+    <div class="body">
+      <div class="grid">${metrics}</div>
+      ${formula}${warn}${reasons}
+      ${plot(d,r,a)}
+      ${leg}
+    </div></div>`;
+}
+
+const out=document.getElementById('out');
+function handle(files){
+  const list=[...files]; let pending=list.length;
+  if(!pending) return;
+  const cards=new Array(pending);
+  list.forEach((f,idx)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const {d,r,win}=parseCSV(fr.result);
+      cards[idx]=card(f.name,d,r,win);      // keep drop order
+      if(--pending===0) out.innerHTML=cards.join('');
+    };
+    fr.readAsText(f);
+  });
+}
+
+const drop=document.getElementById('drop'), input=document.getElementById('fileInput');
+input.addEventListener('change',e=>handle(e.target.files));
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop',e=>handle(e.dataTransfer.files));
+</script>
+</body>
+</html>
