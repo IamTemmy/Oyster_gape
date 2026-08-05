@@ -171,3 +171,26 @@ Ledger (bare board, asleep):
 Remaining 7 mA = CH340 USB-serial chip (~5 mA, the big one) + regulator quiescent.
 Two LEDs stripped total (RTC ~3mA + Nano PWR ~3mA) = ~6mA of indicator-LED waste
 reclaimed. Next target: CH340 (biggest single parasitic, sacrificial strip).
+
+## Strip #4 — Remove AMS1117 voltage regulator (asleep)
+Before (LEDs stripped, CH340 isolated): 7 mA.
+After removing the AMS1117 regulator: 2 mA.
+=> Regulator quiescent draw = ~5 mA. THE single biggest remaining parasitic
+   (supervisor correctly flagged it). Powered via 5V pin, so the regulator was
+   drawing bias/quiescent current with no useful function -> removed.
+
+Bare-board sleeping floor is now ~2 mA (was 10 mA original). This is essentially
+the ATmega's real deep-sleep current + residual passives — the practical floor
+for this board.
+
+### Updated finding: where the original 10 mA floor actually went
+  - CH340 USB chip:      ~0 mA  (surprise — predicted ~5 mA; back-feeds, not a draw)
+  - Nano PWR LED:        ~3 mA
+  - AMS1117 regulator:   ~5 mA  (the real culprit)
+  - ATmega deep sleep + passives: ~2 mA (remaining floor)
+
+### Full-node projection (gated + stripped, asleep)
+  stripped bare board ~2 + RTC(LED-stripped) ~1 + SD ~2 + 6 sensors gated ~1.4
+  = ~6-7 mA average  (vs 51 mA original unoptimized = ~8x improvement)
+
+This is the number that makes a month+ deployment realistic on a modest battery.
