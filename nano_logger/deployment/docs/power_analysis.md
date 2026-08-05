@@ -105,3 +105,17 @@ partially alive (e.g. a gated sensor drawing through its OUT line). "Off" must
 be truly off.
 
 Ledger (asleep): floor 10 | +RTC(LED-stripped) 11 | (was +RTC intact 14).
+
+## State 7 — STRIP #2: remove Nano onboard PWR LED, asleep
+Before (bare board, sleeping): 10 mA.
+Action: removed the "PWR" LED (2nd of 4 in the L/PWR/TX/RX row, above "PWR"
+silkscreen). Left L (pin13/SCK), TX, RX untouched — TX/RX only draw during USB,
+so they're already dark in deployment.
+After (bare board, sleeping): 7 mA.
+=> PWR LED cost = ~3 mA (clone-board LED running bright). Board still uploads/runs.
+
+Ledger (bare board, asleep):
+  10 mA original floor -> 7 mA after removing PWR LED.
+Remaining 7 mA = CH340 USB-serial chip (~5 mA, the big one) + regulator quiescent.
+Two LEDs stripped total (RTC ~3mA + Nano PWR ~3mA) = ~6mA of indicator-LED waste
+reclaimed. Next target: CH340 (biggest single parasitic, sacrificial strip).
