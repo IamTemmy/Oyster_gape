@@ -194,3 +194,34 @@ for this board.
   = ~6-7 mA average  (vs 51 mA original unoptimized = ~8x improvement)
 
 This is the number that makes a month+ deployment realistic on a modest battery.
+
+## FINAL — Full stripped + gated node (working, reprogrammable board)
+Board: fresh Nano, LEDs + regulator removed, CH340 KEPT (draws ~0, preserves USB).
+Built the system up on this working board, measuring each addition (asleep):
+  stripped bare board:      2 mA
+  + RTC (LED-stripped):     3 mA  (+1)
+  + SD (card in):           5 mA  (+2)
+  + 3 sensors GATED:        6 mA  (+1 averaged)   <-- FINAL
+
+Gated-sensor reading: settles 6 mA, spikes 11-13 mA on the 3 ms read window
+(spikes confirm sensors ARE powered during reads = gating cycling correctly).
+First 3 s shows ~19-21 mA = boot delay(3000) awake window; ignored.
+
+Wiring lesson: initial 25 mA reading was a wiring swap — signals were on
+D4/D5/D6 and VDD was still on the 5V rail, so sensors ran 24/7. Fixed:
+VDD -> D4/D5/D6 (gated power), OUT -> A0/A1/A2 (signal). Then gating worked.
+
+### Full journey
+  51 mA  original unaltered board, awake, 3 sensors ungated
+   2 mA  stripped bare board (LEDs + regulator removed)
+   6 mA  stripped + RTC + SD + 3 sensors gated (working, USB-programmable board)
+
+Six-sensor projection: 5 (RTC+SD) + 6*~0.4 gated ~= 7-8 mA average.
+=> ~7-8x better than the 51 mA start, on a board that still uploads over USB.
+Makes a month+ deployment realistic on a modest battery.
+
+### Deployment takeaway
+Best prototype config = strip LEDs + regulator, KEEP CH340 (0 mA cost, keeps USB),
+gate sensors via GPIO (one per pin). For the real build, a bare ATmega328P starts
+here without any surgery. Sensor gating + regulator removal are the two big wins;
+CH340 removal is pointless (0 mA, and it back-feeds).
