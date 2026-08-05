@@ -266,3 +266,37 @@ be folded into the battery estimate via a current profiler (PPK2/Otii).
 Upload troubleshooting note: a Mac CH340 driver conflict (two competing drivers)
 caused "Device not configured" / port-drop upload failures. Uploading from a
 different PC worked on all boards. Fix pending: clean up the Mac CH340 driver.
+
+## Deployment firmware — Timer1 10 Hz interrupt (per supervisor)
+Sketch: firmware/nano_logger_deploy_10hz/nano_logger_deploy_10hz.ino
+Architecture (as specified): hardware Timer1 compare-match interrupt fires every
+100 ms (exactly 10 Hz); the interrupt wakes the CPU from IDLE sleep; on wake it
+gates the 6 sensors, reads, timestamps (RTC), writes a CSV row to SD, sleeps.
+
+Verified from logged data (LOG0002/LOG0003):
+  - Timing: ms-step = 100 for the large majority of rows (LOG0003: 2009 rows @100,
+    915 @101, 797 @99) -> clean 10 Hz, +/-1 ms jitter. Confirms Timer1 timing.
+  - time_valid works: LOG0002 anchored (2026 timestamps, time_valid=1 after 's');
+    LOG0001/0003 unanchored (year-2000 placeholder, time_valid=0).
+  - All 6 sensor channels populated with sensible values.
+
+Power: ~9 mA settled at 10 Hz on the test board (spikes ~20-30 mA on the 3 ms
+6-sensor read). This is the exact-10Hz cost:
+  - IDLE sleep (~9 mA @ 10 Hz) vs deep-sleep watchdog (~6 mA @ 8 Hz): ~3 mA is
+    the price of exact 100 ms timing. You CANNOT have exact 10 Hz AND deepest
+    sleep — the hardware timer that gives exact timing must keep its clock
+    running, which is what deep power-down shuts off.
+  - L LED: removing it changed the reading ~0 mA. It only flickers briefly on SD
+    writes, so its time-averaged draw is negligible (earlier ~1-3 mA estimate was
+    wrong — measurement corrected it).
+
+Why the watchdog can't do 10 Hz: its intervals are fixed steps (16/32/64/125/250
+/500 ms...); nearest to 100 ms is 125 ms = 8 Hz. No exact 100 ms step exists.
+
+Open decision (supervisor): drop the RTC? It costs only ~1 mA, so removing it
+barely saves power. The real tradeoff is TIME: without the RTC every sample has
+only millis() (time-since-boot), not wall-clock time. Absolute time can still be
+reconstructed IF each node's exact deploy moment is recorded (millis + known boot
+time -> absolute). Needed if correlating gape with tide / day-night. Decision is
+"do we track deploy-time manually across ~16 nodes, or let each node stamp its
+own time for ~1 mA" — not a power question.
