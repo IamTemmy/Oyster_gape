@@ -79,3 +79,29 @@ needs a profiler, for the final battery estimate.
 
 Verification: the periodic 20-24 mA twitch is itself proof the gate opens/closes;
 a separate "comment out the power-OFF line -> jumps to ~39 mA" test also available.
+
+## State 6 — STRIP #1: remove RTC module power LED (D1), asleep
+Before (RTC + LED, sleeping): 14 mA.
+Action: removed D1 (green power LED near "POWER" silkscreen) from HW-084 DS3231
+module. Left everything else (pull-ups R1-4/P2-4, C1/C2, coin-cell diode, EEPROM,
+crystal) intact — one component per measurement.
+After (RTC, LED removed, sleeping): 11 mA.
+=> LED cost = ~3 mA of pure waste, removed. RTC module now adds only ~1 mA over
+   the 10 mA bare-board floor (~= DS3231 chip 0.2 mA + pull-ups). As predicted.
+Function check: flashed 01_rtc_test after removal — RTC boots, ticks 1 s/line,
+anchors to real time on 's' (time_valid 0->1). No functional damage from strip.
+
+### Sneak-current observations (IGNORE for budget, but instructive)
+While probing with the power path half-broken:
+  - Nano VCC removed, RTC still wired via I2C: read 3 mA.
+  - Only GND to Nano, RTC wired: read 7 mA.
+These are NOT any component's real draw. They are phantom/back-feed currents:
+with the Nano's proper VCC removed, current sneaks INTO the Nano through the
+SDA/SCL signal lines + I2C pull-ups and the chip's input-protection diodes.
+Artifact of measuring with a broken power path; vanishes when powered normally.
+DEPLOYMENT LESSON: a "powered-off" chip can still be back-fed through its signal
+pins -> when we power-gate components, ensure signal lines don't keep them
+partially alive (e.g. a gated sensor drawing through its OUT line). "Off" must
+be truly off.
+
+Ledger (asleep): floor 10 | +RTC(LED-stripped) 11 | (was +RTC intact 14).
