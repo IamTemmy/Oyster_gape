@@ -1,3 +1,55 @@
+# Nano logger — power analysis summary
+
+Method: Agilent E3631A bench supply @ ~5.00 V into the Nano 5V pin, USB unplugged
+(supply's current readout = total draw). DMM used for spot cross-checks. Board is
+an unaltered clone Nano unless a row says a component was removed. "Asleep" =
+LowPower.powerDown deep sleep.
+
+## Build-up: current vs what's connected (CPU asleep unless noted)
+
+| State | Configuration | Current | Delta (this item) | Notes |
+|-------|--------------|--------:|--------------:|-------|
+| 0  | Bare Nano, empty sketch (CPU awake)      | 21 mA | —      | unaltered board |
+| 1  | Bare Nano, deep-sleep sketch (asleep)    | 10 mA | -11 mA | CPU active ~11 mA; 10 mA = parasitic floor |
+| 2  | + RTC module (DS3231)                    | 14 mA | +4 mA  | mostly the module's power LED |
+| 3  | + SD module (card in)                    | 16 mA | +2 mA  | no LED on module — efficient |
+| 4  | + 3 Hall sensors, UNGATED (VDD->5V)      | 39 mA | +23 mA | ~7.5 mA per sensor (measured over 4) |
+| 5  | 3 sensors GATED (VDD->GPIO D4/D5/D6)     | 16 mA | -23 mA | sensors on ~3% duty; biggest single win |
+
+## Strip-down: removing parasitics (bare board, asleep; baseline 10 mA)
+
+| Strip | Action | Before | After | Saved | Result |
+|-------|--------|-------:|------:|------:|--------|
+| #1 | Remove RTC module power LED (D1)   | 14 mA | 11 mA | ~3 mA | RTC still keeps time |
+| #2 | Remove Nano onboard PWR LED        | 10 mA |  7 mA | ~3 mA | board still runs |
+| #3 | Cut/lift CH340 VCC (pin 16)        |  7 mA |  7 mA | ~0 mA | no change — chip back-feeds via signal pins |
+| #3b| Also lift CH340 TXD+RXD (pins 2,3) |  7 mA |  7 mA | ~0 mA | LEDs off but current unchanged |
+| #3c| Remove entire CH340 (other board)  |  7 mA |  7 mA | ~0 mA | confirms CH340 is NOT a meaningful draw here |
+
+## Key findings
+- Sensors, always-on, are the LARGEST load (~7.5 mA each; ~45 mA for 6). GPIO-gating
+  is the #1 win — cut 3 sensors from +23 mA to ~0.
+- Indicator LEDs are pure waste: RTC LED ~3 mA + Nano PWR LED ~3 mA = ~6 mA reclaimed.
+- CH340 USB chip draws ~nothing on these clones — removed 3 ways, 0 mA change. It also
+  BACK-FEEDS through its signal pins when VCC is cut (2.37 V measured on the lifted VCC
+  pin), so it can't be cleanly isolated on a clone. Lesson: "off" isn't off if signal
+  lines still feed a chip.
+- Remaining ~7 mA floor is NOT the CH340. Leading suspects: AMS1117 regulator quiescent
+  draw and/or the ATmega's real deep-sleep current on this clone. Next: measure
+  regulator; verify true sleep depth (board warmth / confirm sketch).
+
+## Six-sensor deployment projection (asleep)
+- Ungated: 16 (RTC+SD) + 6*7.5 = ~61 mA
+- Gated:   ~17 mA  => gating saves ~44 mA on a full node; LED stripping adds ~6 mA.
+
+## Deployment implication
+Clean sub-milliamp current can't be reached by stripping a clone Nano (CH340 is
+entangled and back-feeds). This is bench evidence FOR building deployment nodes on a
+bare ATmega328P (Path B) rather than a modified clone.
+
+---
+# Detailed measurement log (chronological notes)
+
 # Nano logger — component-level power analysis
 
 Method: powered from Agilent E3631A (+6V output @ ~5.00 V) into the Nano 5V pin,
