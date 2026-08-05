@@ -241,3 +241,28 @@ Best prototype config = strip LEDs + regulator, KEEP CH340 (0 mA cost, keeps USB
 gate sensors via GPIO (one per pin). For the real build, a bare ATmega328P starts
 here without any surgery. Sensor gating + regulator removal are the two big wins;
 CH340 removal is pointless (0 mA, and it back-feeds).
+
+## MEASURED — Full SIX-sensor gated node (not projected)
+Board: working stripped board (LEDs + regulator out, CH340 kept), all 6 sensors
+gated on individual GPIO pins.
+Wiring: S1 D4/A0, S2 D5/A1, S3 D6/A2, S4 D7/A3, S5 D8/A6, S6 D9/A7; all GND=GND.
+Sketch: gated_sensor_test_6ch.ino (delay(3000) boot window for reprogramming).
+
+Reading: settles 6 mA; spikes 19-21 mA on the 3 ms read (all 6 sensors on).
+=> 6 sensors gated add essentially nothing over 3 sensors gated (both ~6 mA),
+   because sensors are only powered ~3% of the time. This REPLACES the earlier
+   ~7-8 mA six-sensor projection with a measured 6 mA.
+
+### Final measured result
+  51 mA  original unaltered board, awake, 3 sensors ungated
+ ~61 mA  six sensors UNGATED (projected)
+   6 mA  six sensors STRIPPED + GATED (MEASURED, working USB-programmable board)
+  => ~9-10x improvement. This is the deployment node's real average current.
+
+Note: brief per-read spikes (~45 mA instantaneous for 6 sensors, ~20 mA as seen
+on the slow display) and SD-write spikes are NOT captured by the E3631A and will
+be folded into the battery estimate via a current profiler (PPK2/Otii).
+
+Upload troubleshooting note: a Mac CH340 driver conflict (two competing drivers)
+caused "Device not configured" / port-drop upload failures. Uploading from a
+different PC worked on all boards. Fix pending: clean up the Mac CH340 driver.
