@@ -25,6 +25,22 @@ LowPower.powerDown deep sleep.
 | #3 | Cut/lift CH340 VCC (pin 16)        |  7 mA |  7 mA | ~0 mA | no change — chip back-feeds via signal pins |
 | #3b| Also lift CH340 TXD+RXD (pins 2,3) |  7 mA |  7 mA | ~0 mA | LEDs off but current unchanged |
 | #3c| Remove entire CH340 (other board)  |  7 mA |  7 mA | ~0 mA | confirms CH340 is NOT a meaningful draw here |
+| #4 | Remove AMS1117 voltage regulator   |  7 mA |  2 mA | ~5 mA | THE real culprit — bare-board floor now 2 mA |
+
+## Final node (working, USB-programmable board: LEDs + regulator out, CH340 kept)
+
+| Build step | Current | Delta | Notes |
+|-----------|--------:|------:|-------|
+| Stripped bare board          | 2 mA | —    | LEDs + regulator removed |
+| + RTC (LED-stripped)         | 3 mA | +1   | just chip + pull-ups |
+| + SD (card in)               | 5 mA | +2   | no LED, efficient |
+| + 3 sensors GATED            | 6 mA | +1   | avg; spikes 11-13 mA on 3 ms read |
+
+Journey: **51 mA (original, awake, ungated)  ->  6 mA (stripped + gated, still uploads over USB)**.
+Six-sensor projection: 5 + 6*~0.4 = ~7-8 mA average. ~7-8x improvement.
+Two big wins: sensor gating (~44 mA on 6) and regulator removal (~5 mA). CH340
+removal is pointless (0 mA, back-feeds). Deployment: bare ATmega328P starts here
+with no surgery.
 
 ## Key findings
 - Sensors, always-on, are the LARGEST load (~7.5 mA each; ~45 mA for 6). GPIO-gating
