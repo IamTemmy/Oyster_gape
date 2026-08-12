@@ -300,3 +300,26 @@ reconstructed IF each node's exact deploy moment is recorded (millis + known boo
 time -> absolute). Needed if correlating gape with tide / day-night. Decision is
 "do we track deploy-time manually across ~16 nodes, or let each node stamp its
 own time for ~1 mA" — not a power question.
+
+## DAQ6510 precision measurement — true average current (10 Hz deployment sketch)
+Instrument: Keithley DAQ6510 6.5-digit DMM, DC current, front AMPS terminal, in
+series with the board's 5V line. E3631A at 5 V. Sketch: nano_logger_deploy_10hz.
+Capture: 100,000 readings over 50.2 min (~33 readings/s), buffer saved to USB.
+Data: data/daq_current/daq_10hz_run1.csv
+
+RESULT — true time-weighted average current: 8.40 mA
+  (this is the battery-life number; captures spikes the E3631A could not show)
+
+Distribution is BIMODAL:
+  - 70% of time at ~7.34 mA  (between reads / IDLE sleep)
+  - 30% of time at ~10.87 mA (CPU awake: read + timestamp + SD write)
+  - min 7.27 mA, max 23.68 mA (6-sensor read peak), mean 8.40, std 1.64 mA
+Eyeballing the display read ~7 mA (the more common low value); the DAQ's weighted
+mean of 8.40 mA is higher because the 30% spent at ~10.9 mA pulls it up. This is
+exactly why the precision DAQ measurement was needed.
+
+Battery life at 8.40 mA:
+  3500 mAh  -> ~17 days      3x3500 (10,500 mAh) -> ~52 days (month+ target met)
+Conclusion: exact 10 Hz (IDLE sleep) costs ~8.4 mA -> one cell ~17 days, so a
+month+ needs a multi-cell pack (planned: 3 cells) OR a lower sample rate.
+Plot: docs/daq_current_analysis.png
