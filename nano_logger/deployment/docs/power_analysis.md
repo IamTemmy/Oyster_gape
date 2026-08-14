@@ -323,3 +323,56 @@ Battery life at 8.40 mA:
 Conclusion: exact 10 Hz (IDLE sleep) costs ~8.4 mA -> one cell ~17 days, so a
 month+ needs a multi-cell pack (planned: 3 cells) OR a lower sample rate.
 Plot: docs/daq_current_analysis.png
+
+## DAQ6510 measurement campaign + power-integrity investigation
+
+### Goal
+Use the Keithley DAQ6510 (6.5-digit DMM, in series on the 5V line) to get a
+precise, spike-inclusive TIME-AVERAGED current for the 10 Hz deployment sketch,
+better than the E3631A's coarse readout.
+
+### Run 1 (clean) — the trustworthy number
+DAQ in series, no USB, no capacitor. 100k readings / 50 min.
+  TRUE MEAN = 8.40 mA. Bimodal: ~70% at ~7.34 mA (between reads), ~30% at
+  ~10.87 mA (CPU awake: read+timestamp+SD write). Max 23.7 mA (6-sensor read).
+This is the accurate battery number for the 10 Hz IDLE-sleep deployment sketch.
+Battery life: 3500 mAh -> ~17 days; 3x3500 (10,500 mAh) -> ~52 days (meets month+).
+
+### Runs 2/3 (faulty) — intermittent high-current / dropouts
+Repeat runs gave 30.9 mA and 16.7 mA with sustained ~30-60 mA plateaus and
+0 mA dropouts. Investigated thoroughly:
+  - NOT firmware: the board's own SD logs stayed clean 10 Hz (73k rows, 0
+    overruns, max gap ~128 ms) THROUGH the faulty DAQ captures. The board ran
+    perfectly; only the DAQ current trace showed dropouts.
+  - NOT SD-card fill: a freshly cleared card still showed the fault.
+  - NOT sensor inrush brownout alone: adding a 100 uF cap did not fully fix it.
+  - Hundreds of tiny empty LOG####.CSV files earlier were from repeated
+    reboots in one bad session, not normal operation.
+
+### Root cause — the DAQ series path, not the board
+Decisive test: powering the board from the E3631A ALONE (no DAQ in series, no
+cap) ran flawlessly — LOG: 21,700 rows, clean 10.00 Hz, 0 overruns, 36 min.
+=> The board + firmware + E3631A are rock-solid. The instability was introduced
+   by the DAQ's series measurement path (its internal shunt + clip contacts +
+   longer/inductive wiring), which chokes the board's fast per-read current
+   spikes -> voltage sag/dropouts at the board. USB masked it earlier by adding
+   a stiff parallel power path.
+
+### Why the capacitor helped (decoupling)
+A local capacitor across the board's 5V/GND acts as a charge reservoir: it
+supplies the fast per-read current spikes LOCALLY, so the rapid dI/dt no longer
+has to fight through the DAQ path's series resistance and inductance (V=I*R and
+V=L*dI/dt). It decouples the board's transient demand from a "weak" supply path.
+  - E3631A-direct path is already stiff (low R/L) -> no cap needed (proven).
+  - DAQ-in-series path is weak for transients -> cap needed to measure cleanly.
+  - Deployment (direct battery) is stiff like the E3631A -> stable without a cap,
+    but a decoupling cap is still good practice and will be included.
+
+### Takeaways
+- 8.40 mA (run 1) stands as the true 10 Hz deployment current.
+- The faults were a BENCH MEASUREMENT ARTIFACT (DAQ series path), not a
+  deployment flaw. Direct battery power in the field avoids it.
+- For further clean DAQ captures: keep a decoupling cap at the board, and make
+  the DAQ series connections as mechanically solid as possible.
+- Watch item: one run showed sensor 6 (s6) column all-zero — check D9/A7/sensor
+  contact; verify s6 varies in subsequent logs.
