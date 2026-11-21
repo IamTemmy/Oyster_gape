@@ -18,8 +18,16 @@
  * PINS: sensor power D4..D9 (gated, one per pin); signal A0,A1,A2,A3,A6,A7;
  *       RTC SDA=A4 SCL=A5; SD CS=D10 MOSI=D11 MISO=D12 SCK=D13; GND common.
  * SCHEMA: iso_time,unix,ms,time_valid,node,sample,s1..s6
- *   No-coin-cell: time_valid=0 until anchored (serial 's' / external at deploy);
- *   millis() is always a valid fine relative axis.
+ *   No-coin-cell: time_valid=0 until anchored; millis() is always a valid fine
+ *   relative axis.
+ *
+ * ANCHORING THE CLOCK — send  T<unix_epoch>  over serial at 9600 baud.
+ *   macOS/Linux, generate the exact string to paste:   date +T%s
+ *   The RTC is then on UTC, which is what the dataset should carry.
+ *
+ *   DO NOT use DateTime(F(__DATE__), F(__TIME__)). That sets the clock to when
+ *   the sketch was COMPILED, not when you pressed the key. It put the Oct 2026
+ *   soak-test timestamps ~74 days adrift (they read August). Fixed 2026-11-21.
  * LIBS: RTClib, SD, SPI, Wire, avr/sleep.h. delay(3000) boot = reprogram window.
  */
 #include <Wire.h>
@@ -67,7 +75,7 @@ void setup(){
   Wire.begin();
   if(!rtc.begin()) fatal("DS3231 not found (A4/A5)");
   timeAnchored = !rtc.lostPower();
-  if(!timeAnchored) Serial.println(F("RTC not anchored (no coin cell). time_valid=0. Send 's'."));
+  if(!timeAnchored) Serial.println(F("RTC not anchored (no coin cell). time_valid=0. Send T<unix_epoch>."));
   Serial.print(F("Init SD... "));
   if(!SD.begin(SD_CS_PIN)) fatal("SD init failed (CS=D10, FAT32 card)");
   Serial.println(F("ok"));
@@ -98,8 +106,34 @@ void takeSample(){
   logFile.println(row); logFile.flush();
 }
 
+// Anchor the RTC from a real wall-clock epoch sent over serial: T<seconds>.
+// parseInt() can block up to its 1 s timeout, so a few samples are dropped
+// during anchoring. That is a one-time manual step before deployment.
+void handleSerial(){
+  if(!Serial.available()) return;
+  char c = Serial.read();
+  if(c=='T' || c=='t'){
+    long epoch = Serial.parseInt();
+    if(epoch > 1700000000L){                 // sanity floor: after Nov 2023
+      rtc.adjust(DateTime((uint32_t)epoch));
+      timeAnchored = true;
+      Serial.print(F(">> anchored, unix=")); Serial.println(epoch);
+      DateTime t = rtc.now();
+      Serial.print(F(">> RTC now reads ")); Serial.print(t.year());  Serial.print('-');
+      Serial.print(t.month()); Serial.print('-'); Serial.print(t.day());  Serial.print(' ');
+      Serial.print(t.hour());  Serial.print(':'); Serial.print(t.minute()); Serial.print(':');
+      Serial.println(t.second());
+    } else {
+      Serial.println(F("!! rejected. Send T<unix_epoch>, e.g. T1795000000"));
+    }
+  } else if(c=='s' || c=='S'){
+    Serial.println(F("!! 's' removed: it anchored to COMPILE time, not now."));
+    Serial.println(F("!! Send T<unix_epoch> instead.  macOS/Linux:  date +T%s"));
+  }
+}
+
 void loop(){
-  if(Serial.available()){ char c=Serial.read(); if(c=='s'||c=='S'){ rtc.adjust(DateTime(F(__DATE__),F(__TIME__))); timeAnchored=true; Serial.println(F(">> anchored")); } }
+  handleSerial();
   while(!tick){ sleep_mode(); }
   tick = false;
   takeSample();
