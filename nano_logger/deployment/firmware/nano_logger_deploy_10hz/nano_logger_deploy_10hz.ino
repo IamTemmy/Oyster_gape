@@ -29,6 +29,21 @@
  *   the sketch was COMPILED, not when you pressed the key. It put the Oct 2026
  *   soak-test timestamps ~74 days adrift (they read August). Fixed 2026-11-21.
  * LIBS: RTClib, SD, SPI, Wire, avr/sleep.h. delay(3000) boot = reprogram window.
+ *
+ * SD WRITE-FAILURE RECOVERY (added 2026-11-22)
+ *   An SD card that sees a supply dip mid-write can lock up and refuse every
+ *   write afterwards until it is power-cycled. The old code checked neither
+ *   println() nor flush(), so the loop went on sampling and writing into the
+ *   void, drawing full current, with nothing to show it had gone deaf. Two
+ *   bench runs died that way — 11 min and 46 min of data from 3.5 h of draw.
+ *
+ *   Now every row is verified with getWriteError(). On failure the card is
+ *   re-initialised and the log reopened in append mode, at most once per
+ *   5 s so a dead card cannot eat the duty cycle.
+ *
+ *   sampleCount ALWAYS increments, written or not, so a gap in the `sample`
+ *   column is an exact count of rows lost. The last column, wr_err, is the
+ *   cumulative failure count — 0 for a healthy run.
  */
 #include <Wire.h>
 #include <SPI.h>
@@ -50,6 +65,42 @@ char logName[13];
 bool timeAnchored = false;
 unsigned long sampleCount = 0;
 volatile bool tick = false;
+
+// ---- SD write health --------------------------------------------------
+unsigned long writeErrors   = 0;      // cumulative; logged as the last column
+unsigned long lastRecoverMs = 0;
+const unsigned long RECOVER_COOLDOWN_MS = 5000;
+
+// Re-init the card and reopen the SAME log in append mode.
+bool reopenLog(){
+  logFile.close();
+  if(!SD.begin(SD_CS_PIN)) return false;
+  logFile = SD.open(logName, FILE_WRITE);   // FILE_WRITE appends
+  return (bool)logFile;
+}
+
+// Write one row, verify it landed, and attempt recovery if it did not.
+// Returns true only when the row is actually on the card.
+bool writeRow(const char* row){
+  if(logFile){
+    logFile.println(row);
+    logFile.flush();
+    if(!logFile.getWriteError()) return true;
+    logFile.clearWriteError();
+  }
+  writeErrors++;
+  unsigned long now = millis();
+  if(now - lastRecoverMs >= RECOVER_COOLDOWN_MS){   // don't thrash a dead card
+    lastRecoverMs = now;
+    if(reopenLog()){
+      logFile.println(row);
+      logFile.flush();
+      if(!logFile.getWriteError()) return true;
+      logFile.clearWriteError();
+    }
+  }
+  return false;
+}
 
 int readSensor(uint8_t pin){ analogRead(pin); return analogRead(pin); }
 void fatal(const char*m){ while(1){ Serial.print(F("FATAL: ")); Serial.println(m); delay(2000);} }
@@ -82,7 +133,7 @@ void setup(){
   makeLogName();
   logFile = SD.open(logName, FILE_WRITE);
   if(!logFile) fatal("open log failed");
-  logFile.println(F("iso_time,unix,ms,time_valid,node,sample,s1,s2,s3,s4,s5,s6"));
+  logFile.println(F("iso_time,unix,ms,time_valid,node,sample,s1,s2,s3,s4,s5,s6,wr_err"));
   logFile.flush();
   Serial.print(F("Logging to ")); Serial.println(logName);
   setupTimer1_100ms();
@@ -98,12 +149,13 @@ void takeSample(){
   DateTime t = rtc.now();
   char iso[20];
   snprintf(iso,sizeof(iso),"%04u-%02u-%02uT%02u:%02u:%02u",t.year(),t.month(),t.day(),t.hour(),t.minute(),t.second());
-  sampleCount++;
-  char row[110];
-  snprintf(row,sizeof(row),"%s,%lu,%lu,%d,%s,%lu,%d,%d,%d,%d,%d,%d",
+  sampleCount++;                      // always, written or not — gaps in this
+                                      // column are an exact count of lost rows
+  char row[128];
+  snprintf(row,sizeof(row),"%s,%lu,%lu,%d,%s,%lu,%d,%d,%d,%d,%d,%d,%lu",
     iso,(unsigned long)t.unixtime(),millis(),timeAnchored?1:0,NODE_ID,sampleCount,
-    v[0],v[1],v[2],v[3],v[4],v[5]);
-  logFile.println(row); logFile.flush();
+    v[0],v[1],v[2],v[3],v[4],v[5],writeErrors);
+  writeRow(row);
 }
 
 // Anchor the RTC from a real wall-clock epoch sent over serial: T<seconds>.
