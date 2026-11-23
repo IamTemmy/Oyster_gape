@@ -19,11 +19,65 @@ the pack and the load.
 | Pack voltage at start | 3.712 V |
 | Load-side current (prior, DAQ) | 8.40 mA @ 5.03 V |
 | **Implied boost efficiency** | **~75 %** |
-| **Projected runtime, one pack** | **~16 days** |
+| ~~Projected runtime, one pack~~ | ~~~16 days~~ — **see revision below** |
 
-**Headline: at the professor-specified 10 Hz sample rate the system draws 15.2 mA
-from the pack and runs approximately 16 days, not the 30 days the deployment
-requires.**
+**Headline: at the professor-specified 10 Hz sample rate the system draws
+15.2 mA from the pack.** That current measurement stands. The runtime figure
+derived from it does not — see below.
+
+---
+
+## REVISION 2026-11-23 — the ~16 day runtime figure is withdrawn
+
+The 16-day projection came from the six-day soak test's voltage decay:
+4.14 V → 3.71 V over 164.9 h, read as ~43 % of a 3P pack.
+
+**That soak test ran on a holder whose cells were not all connected.** The 2019
+holder design has a stack-up error that leaves the retaining spring coil-bound
+with zero travel, so cell contact is intermittent and position-dependent — see
+[`../mechanical/battery_holder_stackup.md`](../mechanical/battery_holder_stackup.md).
+A later run demonstrated the effect directly: cell 1 fell 12 mV while cells 2
+and 3 did not move at all, i.e. **one cell carried the entire load**.
+
+So the soak test measured the decay of an effectively 1P-to-2P pack and the
+43 %-of-10,500 mAh reading was never valid. The implied "~5,400 mAh real
+capacity" conclusion is withdrawn with it.
+
+**The cells are fine.** A single cell charged from 4.036 V accepted **706 mAh**
+to reach a rested 4.217 V, which back-calculates to ~3,500 mAh at a starting SOC
+of ~80 % — consistent with genuine INR18650-35E.
+
+### Revised runtime, from energy rather than voltage decay
+
+Load is constant power, so work in energy:
+
+```
+output            8.40 mA x 5.03 V          =  42.3 mW
+input at 75 %     42.3 / 0.75               =  56.3 mW
+pack energy       10,500 mAh x 3.6 V        =  37,800 mWh
+runtime           37,800 / 56.3             =  671 h  =  28.0 days
+at 90 % usable    34,020 / 56.3             =  604 h  =  25.2 days
+```
+
+| Configuration | Runtime |
+|---|---|
+| One pack, nameplate | ~28 days |
+| One pack, 90 % usable | ~25 days |
+| **Two packs** | **~50–56 days** |
+
+**One pack lands at 25–28 days: short of 30, with no margin.** Cold water makes
+it worse — low temperature raises internal resistance and cuts usable capacity —
+and boost efficiency falls as the pack voltage drops, so the back end of the
+discharge is worse than linear.
+
+**Recommendation: two packs.** The deficit is small but it is on the wrong side
+of the requirement, and there is no headroom for a cold deployment or a delayed
+retrieval.
+
+**Outstanding:** the 15.155 mA figure was measured with the faulty holder and
+the BMS in circuit. Neither should change it materially — the load is constant
+power and a BMS idles in the tens of microamps — but it is worth re-measuring
+for 20 minutes on the final build before the number goes in a report.
 
 ---
 
